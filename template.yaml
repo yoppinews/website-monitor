@@ -1,39 +1,173 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  yoppinews-web-monitor-bot
+  website-monitor
 
-  Sample SAM Template for yoppinews-web-monitor-bot
+Parameters:
+  Stage:
+    Type: String
+  LogRetentionInDays:
+    Type: Number
+    Default: 7
+  ConfigBucket:
+    Type: String
+  ConfigKeyName:
+    Type: String
+  Schedule:
+    Type: String
+    Default: "rate(20 minutes)"
+  TweetTopic:
+    Type: String
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+
 Globals:
   Function:
-    Timeout: 3
+    Handler: app.lambda_handler
+    Runtime: python3.7
+    Environment:
+      Variables:
+        Stage: !Sub ${Stage}
 
 Resources:
-  HelloWorldFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  WebMonitorBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      CodeUri: hello_world/
-      Handler: app.lambda_handler
-      Runtime: python3.7
-      Events:
-        HelloWorld:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
-          Properties:
-            Path: /hello
-            Method: get
+      VersioningConfiguration:
+        Status: Enabled
 
-Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  HelloWorldApi:
-    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  HelloWorldFunction:
-    Description: "Hello World Lambda Function ARN"
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+  PipModulesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      Description: web-monitor pip modules(python 3.x)
+      ContentUri: src/layers/pip_modules
+      RetentionPolicy: Retain
+      CompatibleRuntimes:
+        - python3.7
+  BrowserKitLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      Description: web-monitor headless browser modules(python 3.x)
+      ContentUri: src/layers/browser_kit
+      RetentionPolicy: Retain
+      CompatibleRuntimes:
+        - python3.7
+
+  TaskSchedulerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 10
+      MemorySize: 128
+      Layers:
+        - !Ref PipModulesLayer
+      CodeUri: src/task_scheduler/
+      Environment:
+        Variables:
+          DetectWebsiteChangesTopic: !Ref DetectWebsiteChangesTopic
+          ConfigBucket: !Sub ${ConfigBucket}
+          ConfigKeyName: !Sub ${ConfigKeyName}
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub ${ConfigBucket}
+        - SNSPublishMessagePolicy:
+            TopicName:
+              !Select
+                - 5
+                - !Split
+                  - ":"
+                  - !Ref DetectWebsiteChangesTopic
+      Events:
+        Schedule:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub ${Schedule}
+  TaskSchedulerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        !Join
+          - ''
+          - - '/aws/lambda/'
+            - !Ref TaskSchedulerFunction
+      RetentionInDays: !Sub ${LogRetentionInDays}
+
+  DetectWebsiteChangesTopic:
+    Type: AWS::SNS::Topic
+  DetectWebsiteChangesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 20
+      MemorySize: 1024
+      Layers:
+        - !Ref PipModulesLayer
+        - !Ref BrowserKitLayer
+      CodeUri: src/detect_website_changes/
+      Environment:
+        Variables:
+          NextTopic: !Ref HandleEventsTopic
+          WebMonitorBucket: !Ref WebMonitorBucket
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref WebMonitorBucket
+        - SNSPublishMessagePolicy:
+            TopicName:
+              !Select
+                - 5
+                - !Split
+                  - ":"
+                  - !Ref HandleEventsTopic
+      Events:
+        DetectWebsiteChangesEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref DetectWebsiteChangesTopic
+  DetectWebsiteChangesFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        !Join
+          - ''
+          - - '/aws/lambda/'
+            - !Ref DetectWebsiteChangesFunction
+      RetentionInDays: !Sub ${LogRetentionInDays}
+
+
+  HandleEventsTopic:
+    Type: AWS::SNS::Topic
+  HandleEventsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 10
+      MemorySize: 128
+      Layers:
+        - !Ref PipModulesLayer
+      CodeUri: src/handle_events/
+      Environment:
+        Variables:
+          DetectWebsiteChangesTopic: !Ref HandleEventsTopic
+          ConfigBucket: !Sub ${ConfigBucket}
+          ConfigKeyName: !Sub ${ConfigKeyName}
+          TweetTopic: !Sub ${TweetTopic}
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub ${ConfigBucket}
+        - SNSPublishMessagePolicy:
+            TopicName:
+              !Select
+                - 5
+                - !Split
+                  - ":"
+                  - !Sub ${TweetTopic}
+      Events:
+        Schedule:
+          Type: SNS
+          Properties:
+            Topic: !Ref HandleEventsTopic
+  HandleEventsFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        !Join
+          - ''
+          - - '/aws/lambda/'
+            - !Ref HandleEventsFunction
+      RetentionInDays: !Sub ${LogRetentionInDays}
