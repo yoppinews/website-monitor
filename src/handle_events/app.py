@@ -10,7 +10,7 @@ import logging
 import dataclasses
 
 from WebMonitorConfig import WebMonitorConfig
-from WebMonitor import DetectWebsiteChangesResult
+from WebMonitor import DetectWebsiteChangesResult, DetectRSSEntryResult
 
 stage = os.environ['Stage']
 config_bucket = os.environ['ConfigBucket']
@@ -44,7 +44,7 @@ def lambda_handler(event, __) -> dict:
         message_id = sns['MessageId']
         message = json.loads(sns['Message'])
         logger.info(json.dumps({
-            'event': 'web-monitor:detect_website_changes:lambda_handler',
+            'event': 'web-monitor:handle_events:lambda_handler',
             'details': {
                 'message_id': message_id,
                 'message': message,
@@ -55,10 +55,13 @@ def lambda_handler(event, __) -> dict:
         if t == 'DetectWebsiteChangesResult':
             e = DetectWebsiteChangesResult(**message)
             return handle_website_changes(e, monitor_config, handle_config)
+        if t == 'DetectRSSEntryResult':
+            e = DetectRSSEntryResult(**message)
+            return handle_rss_entry(e, monitor_config, handle_config)
         return {}
     except KeyError as e:
         logger.info(json.dumps({
-            'event': 'web-monitor:detect_website_changes:lambda_handler:error',
+            'event': 'web-monitor:handle_events:lambda_handler:error',
             'details': {
                 'message': e.__str__(),
             }
@@ -87,6 +90,30 @@ def handle_website_changes(
     return {}
 
 
+def handle_rss_entry(
+    event: DetectRSSEntryResult,
+    monitor_config: WebMonitorConfig,
+    handle_config: HandleEventsConfig
+) -> dict:
+    dic = {
+        'title': event.title,
+        'url': event.url,
+        'feed_url': event.feed_url,
+        'selector': event.selector,
+        'matched_keyword': event.matched_keyword,
+    }
+    template = string.Template(monitor_config.rss_template)
+    status = template.substitute(dic).strip("\"")
+    tweet_message = {'status': status}
+    notify_message(
+        handle_config.sns_client,
+        handle_config.tweet_topic,
+        tweet_message,
+        handle_config.logger
+    )
+    return {}
+
+
 def notify_message(sns, topic: str, message: dict, logger: logging.Logger):
     j = json.dumps(message, ensure_ascii=False)
     res = sns.publish(
@@ -94,6 +121,6 @@ def notify_message(sns, topic: str, message: dict, logger: logging.Logger):
         Message=j,
     )
     logger.info(json.dumps({
-        'event': 'web_monitor:notify_message:message_id',
+        'event': 'web_monitor:handle_events:notify_message:message_id',
         'details': {'message': message, 'return': res}
     }, ensure_ascii=False))

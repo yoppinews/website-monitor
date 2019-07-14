@@ -9,6 +9,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src/task_scheduler" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/layers/pip_modules/python" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/handle_events" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/detect_rss_entry" isTestSource="false" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

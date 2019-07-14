@@ -63,6 +63,7 @@ Resources:
       Environment:
         Variables:
           DetectWebsiteChangesTopic: !Ref DetectWebsiteChangesTopic
+          DetectRSSEntryTopic: !Ref DetectRSSEntryTopic
           ConfigBucket: !Sub ${ConfigBucket}
           ConfigKeyName: !Sub ${ConfigKeyName}
       Policies:
@@ -75,6 +76,13 @@ Resources:
                 - !Split
                   - ":"
                   - !Ref DetectWebsiteChangesTopic
+        - SNSPublishMessagePolicy:
+            TopicName:
+              !Select
+                - 5
+                - !Split
+                  - ":"
+                  - !Ref DetectRSSEntryTopic
       Events:
         Schedule:
           Type: Schedule
@@ -128,6 +136,46 @@ Resources:
           - ''
           - - '/aws/lambda/'
             - !Ref DetectWebsiteChangesFunction
+      RetentionInDays: !Sub ${LogRetentionInDays}
+
+  DetectRSSEntryTopic:
+    Type: AWS::SNS::Topic
+  DetectRSSEntryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 20
+      MemorySize: 1024
+      Layers:
+        - !Ref PipModulesLayer
+        - !Ref BrowserKitLayer
+      CodeUri: src/detect_rss_entry/
+      Environment:
+        Variables:
+          NextTopic: !Ref HandleEventsTopic
+          WebMonitorBucket: !Ref WebMonitorBucket
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref WebMonitorBucket
+        - SNSPublishMessagePolicy:
+            TopicName:
+              !Select
+                - 5
+                - !Split
+                  - ":"
+                  - !Ref HandleEventsTopic
+      Events:
+        DetectRSSEntryEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref DetectRSSEntryTopic
+  DetectRSSEntryFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        !Join
+          - ''
+          - - '/aws/lambda/'
+            - !Ref DetectRSSEntryFunction
       RetentionInDays: !Sub ${LogRetentionInDays}
 
 
