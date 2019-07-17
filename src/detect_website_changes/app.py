@@ -37,41 +37,34 @@ def lambda_handler(event, _) -> dict:
     logger.handlers = [handler]
     logger.propagate = False
 
-    try:
-        record = event['Records'][0]
-        sns = record['Sns']
-        message_id = sns['MessageId']
-        message = json.loads(sns['Message'])
-        logger.info(json.dumps({
-            'event': 'web-monitor:detect_website_changes:lambda_handler',
-            'details': {
-                'message_id': message_id,
-                'message': message,
-            }
-        }, ensure_ascii=False))
-        e = DetectWebsiteChangesEvent.from_message(message)
-        global detector
-        if detector is None:
-            driver = WebDriverWrapper()
-            revisions = WebsiteRevisionsOnS3(bucket, logger)
-            detector = WebsiteChangesDetector(driver, revisions)
-        sns_client = boto3.client('sns')
-        config = DetectWebsiteChangesConfig(sns_client, next_topic, logger)
-        result = dataclasses.asdict(handle(e, detector, config))
-        logger.info(json.dumps({
-            'event': 'web-monitor:detect_website_changes:lambda_handler:result',
-            'details': {
-                'result': result,
-            }
-        }, ensure_ascii=False))
-        return result
-    except KeyError as e:
-        logger.info(json.dumps({
-            'event': 'web-monitor:detect_website_changes:lambda_handler:error',
-            'details': {
-                'message': e.__str__(),
-            }
-        }, ensure_ascii=False))
+    record = event['Records'][0]
+    sns = record['Sns']
+    message_id = sns['MessageId']
+    message = json.loads(sns['Message'])
+    logger.info(json.dumps({
+        'event': 'web-monitor:detect_website_changes:lambda_handler',
+        'details': {
+            'message_id': message_id,
+            'message': message,
+        }
+    }, ensure_ascii=False))
+
+    e = DetectWebsiteChangesEvent.from_message(message)
+    global detector
+    if detector is None:
+        driver = WebDriverWrapper()
+        revisions = WebsiteRevisionsOnS3(bucket, logger)
+        detector = WebsiteChangesDetector(driver, revisions)
+    sns_client = boto3.client('sns')
+    config = DetectWebsiteChangesConfig(sns_client, next_topic, logger)
+    result = dataclasses.asdict(handle(e, detector, config))
+    logger.info(json.dumps({
+        'event': 'web-monitor:detect_website_changes:lambda_handler:result',
+        'details': {
+            'result': result,
+        }
+    }, ensure_ascii=False))
+    return result
 
 
 def handle(

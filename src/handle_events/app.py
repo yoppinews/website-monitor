@@ -38,34 +38,26 @@ def lambda_handler(event, __) -> dict:
     handle_config = HandleEventsConfig(sns_client, tweet_topic, logger)
     monitor_config = WebMonitorConfig.initialize(config_bucket, config_key_name)
 
-    try:
-        record = event['Records'][0]
-        sns = record['Sns']
-        message_id = sns['MessageId']
-        message = json.loads(sns['Message'])
-        logger.info(json.dumps({
-            'event': 'web-monitor:handle_events:lambda_handler',
-            'details': {
-                'message_id': message_id,
-                'message': message,
-            }
-        }, ensure_ascii=False))
+    record = event['Records'][0]
+    sns = record['Sns']
+    message_id = sns['MessageId']
+    message = json.loads(sns['Message'])
+    logger.info(json.dumps({
+        'event': 'web-monitor:handle_events:lambda_handler',
+        'details': {
+            'message_id': message_id,
+            'message': message,
+        }
+    }, ensure_ascii=False))
 
-        t = message['type']
-        if t == 'DetectWebsiteChangesResult':
-            e = DetectWebsiteChangesResult(**message)
-            return handle_website_changes(e, monitor_config, handle_config)
-        if t == 'DetectRSSEntryResult':
-            e = DetectRSSEntryResult(**message)
-            return handle_rss_entry(e, monitor_config, handle_config)
-        return {}
-    except KeyError as e:
-        logger.info(json.dumps({
-            'event': 'web-monitor:handle_events:lambda_handler:error',
-            'details': {
-                'message': e.__str__(),
-            }
-        }, ensure_ascii=False))
+    t = message['type']
+    if t == 'DetectWebsiteChangesResult':
+        e = DetectWebsiteChangesResult(**message)
+        return handle_website_changes(e, monitor_config, handle_config)
+    if t == 'DetectRSSEntryResult':
+        e = DetectRSSEntryResult(**message)
+        return handle_rss_entry(e, monitor_config, handle_config)
+    return {}
 
 
 def handle_website_changes(

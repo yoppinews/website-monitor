@@ -36,47 +36,39 @@ def lambda_handler(event, _) -> object:
     logger.handlers = [handler]
     logger.propagate = False
 
-    try:
-        record = event['Records'][0]
-        sns = record['Sns']
-        message_id = sns['MessageId']
-        message = json.loads(sns['Message'])
-        logger.info(json.dumps({
-            'event': 'web-monitor:detect_rss_entry:lambda_handler',
-            'details': {
-                'message_id': message_id,
-                'message': message,
-            }
-        }, ensure_ascii=False))
-        e = DetectRSSEntryEvent.from_message(message)
+    record = event['Records'][0]
+    sns = record['Sns']
+    message_id = sns['MessageId']
+    message = json.loads(sns['Message'])
+    logger.info(json.dumps({
+        'event': 'web-monitor:detect_rss_entry:lambda_handler',
+        'details': {
+            'message_id': message_id,
+            'message': message,
+        }
+    }, ensure_ascii=False))
+    e = DetectRSSEntryEvent.from_message(message)
 
-        global detector
-        related_entry_detector = detector
-        if related_entry_detector is None:
-            driver = WebDriverWrapper()
-            related_entry_detector = RelatedRSSEntryDetector(driver)
+    global detector
+    related_entry_detector = detector
+    if related_entry_detector is None:
+        driver = WebDriverWrapper()
+        related_entry_detector = RelatedRSSEntryDetector(driver)
 
-        cache = RSSEntriesOnS3(bucket, logger)
-        new_entry_detector = RSSNewEntryDetector(cache)
+    cache = RSSEntriesOnS3(bucket, logger)
+    new_entry_detector = RSSNewEntryDetector(cache)
 
-        sns_client = boto3.client('sns')
-        config = DetectRSSEntryConfig(sns_client, next_topic, logger)
-        result = handle(e, new_entry_detector, related_entry_detector, config)
-        result_dic = [dataclasses.asdict(r) for r in result]
-        logger.info(json.dumps({
-            'event': 'web-monitor:detect_rss_entry:lambda_handler:result',
-            'details': {
-                'result': result_dic,
-            }
-        }, ensure_ascii=False))
-        return result_dic
-    except KeyError as e:
-        logger.info(json.dumps({
-            'event': 'web-monitor:detect_rss_entry:lambda_handler:error',
-            'details': {
-                'message': e.__str__(),
-            }
-        }, ensure_ascii=False))
+    sns_client = boto3.client('sns')
+    config = DetectRSSEntryConfig(sns_client, next_topic, logger)
+    result = handle(e, new_entry_detector, related_entry_detector, config)
+    result_dic = [dataclasses.asdict(r) for r in result]
+    logger.info(json.dumps({
+        'event': 'web-monitor:detect_rss_entry:lambda_handler:result',
+        'details': {
+            'result': result_dic,
+        }
+    }, ensure_ascii=False))
+    return result_dic
 
 
 def handle(
