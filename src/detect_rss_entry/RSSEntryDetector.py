@@ -94,10 +94,10 @@ class RelatedRSSEntryDetector:
 
     def matched_keyword(self, entry: RSSEntry, selector: str, keywords: List[str]) -> Optional[str]:
         for k in keywords:
-            if re.match(k, entry.title):
+            if re.findall(k, entry.title):
                 return k
         text = self._driver.find_element(entry.url, selector).selected_text
         for k in keywords:
-            if re.match(k, text):
+            if re.findall(k, text):
                 return k
         return None
