@@ -24,7 +24,7 @@ echo stage: ${stage}
 if [[ ${FLAG_F} = 1 ]]; then
     layers=(
       "pip_modules"
-      "headless_browser"
+      "browser_kit"
     )
     for layer in ${layers[@]}; do
       mkdir -p src/layers/$layer/
@@ -32,13 +32,13 @@ if [[ ${FLAG_F} = 1 ]]; then
       docker run --rm -v "$PWD":/var/task -w /var/task lambci/lambda:build-python3.7 pip install -r requirements.txt -t python
       popd
     done
-    if [ ! -e ./src/layers/scraping_tools/bin/headless-chromium ]; then
+    if [ ! -e ./src/layers/browser_kit/bin/headless-chromium ]; then
       curl -SL https://github.com/adieuadieu/serverless-chrome/releases/download/v1.0.0-37/stable-headless-chromium-amazonlinux-2017-03.zip > /tmp/headless-chromium.zip
-      unzip /tmp/headless-chromium.zip -d ./src/layers/scraping_tools/bin/
+      unzip /tmp/headless-chromium.zip -d ./src/layers/browser_kit/bin/
     fi
-    if [ ! -e ./src/layers/scraping_tools/bin/chromedriver ]; then
+    if [ ! -e ./src/layers/browser_kit/bin/chromedriver ]; then
       curl -SL https://chromedriver.storage.googleapis.com/2.37/chromedriver_linux64.zip > /tmp/chromedriver.zip
-      unzip /tmp/chromedriver.zip -d ./src/layers/scraping_tools/bin/
+      unzip /tmp/chromedriver.zip -d ./src/layers/browser_kit/bin/
     fi
 fi
 
