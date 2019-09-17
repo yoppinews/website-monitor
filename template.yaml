@@ -70,19 +70,9 @@ Resources:
         - S3CrudPolicy:
             BucketName: !Sub ${ConfigBucket}
         - SNSPublishMessagePolicy:
-            TopicName:
-              !Select
-                - 5
-                - !Split
-                  - ":"
-                  - !Ref DetectWebsiteChangesTopic
+            TopicName: !GetAtt DetectWebsiteChangesTopic.TopicName
         - SNSPublishMessagePolicy:
-            TopicName:
-              !Select
-                - 5
-                - !Split
-                  - ":"
-                  - !Ref DetectRSSEntryTopic
+            TopicName: !GetAtt DetectRSSEntryTopic.TopicName
       Events:
         Schedule:
           Type: Schedule
@@ -91,11 +81,7 @@ Resources:
   TaskSchedulerFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName:
-        !Join
-          - ''
-          - - '/aws/lambda/'
-            - !Ref TaskSchedulerFunction
+      LogGroupName: !Sub /aws/lambda/${TaskSchedulerFunction}
       RetentionInDays: !Sub ${LogRetentionInDays}
 
   DetectWebsiteChangesTopic:
@@ -117,12 +103,7 @@ Resources:
         - S3CrudPolicy:
             BucketName: !Ref WebMonitorBucket
         - SNSPublishMessagePolicy:
-            TopicName:
-              !Select
-                - 5
-                - !Split
-                  - ":"
-                  - !Ref HandleEventsTopic
+            TopicName: !GetAtt HandleEventsTopic.TopicName
       Events:
         DetectWebsiteChangesEvent:
           Type: SNS
@@ -131,11 +112,7 @@ Resources:
   DetectWebsiteChangesFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName:
-        !Join
-          - ''
-          - - '/aws/lambda/'
-            - !Ref DetectWebsiteChangesFunction
+      LogGroupName: !Sub /aws/lambda/${DetectWebsiteChangesFunction}
       RetentionInDays: !Sub ${LogRetentionInDays}
 
   DetectRSSEntryTopic:
@@ -157,12 +134,7 @@ Resources:
         - S3CrudPolicy:
             BucketName: !Ref WebMonitorBucket
         - SNSPublishMessagePolicy:
-            TopicName:
-              !Select
-                - 5
-                - !Split
-                  - ":"
-                  - !Ref HandleEventsTopic
+            TopicName: !GetAtt HandleEventsTopic.TopicName
       Events:
         DetectRSSEntryEvent:
           Type: SNS
@@ -171,11 +143,7 @@ Resources:
   DetectRSSEntryFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName:
-        !Join
-          - ''
-          - - '/aws/lambda/'
-            - !Ref DetectRSSEntryFunction
+      LogGroupName: !Sub /aws/lambda/${DetectRSSEntryFunction}
       RetentionInDays: !Sub ${LogRetentionInDays}
 
 
@@ -213,9 +181,5 @@ Resources:
   HandleEventsFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName:
-        !Join
-          - ''
-          - - '/aws/lambda/'
-            - !Ref HandleEventsFunction
+      LogGroupName: !Sub /aws/lambda/${HandleEventsFunction}
       RetentionInDays: !Sub ${LogRetentionInDays}
